@@ -52,6 +52,7 @@ class MainFragment : Fragment() {
     lateinit var carinfo:carInfo
     lateinit var image:String
     lateinit var imageUri: Uri
+    lateinit var lst:MutableList<com.example.garageapp.models.Result>
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -67,26 +68,33 @@ class MainFragment : Fragment() {
     }
 
     private fun onAddImage(carInfo: carInfo) {
-        imageUri=createURI()!!
-
-        carinfo=carInfo
-        contract.launch(imageUri)
-
+        imageUri = createURI()!!
+        if(this::imageUri.isInitialized){
+            carinfo = carInfo
+            contract.launch(imageUri)
+        }
     }
     val contract= registerForActivityResult(ActivityResultContracts.TakePicture()){
-        val source :ImageDecoder.Source =ImageDecoder.createSource(activity?.applicationContext!!.contentResolver,imageUri)
-        val bitmap: Bitmap= ImageDecoder.decodeBitmap(source)
-        val imgStr:String = BitMapConverter.converterBitmapToString(bitmap)
-        image= imgStr
-        MainViewModel.updateCar(carInfo(carinfo.id,carinfo.carMaker,carinfo.carModel,image))
-
+        if(this::imageUri.isInitialized) {
+            val source: ImageDecoder.Source =
+                ImageDecoder.createSource(activity?.applicationContext!!.contentResolver, imageUri)
+            val bitmap: Bitmap = ImageDecoder.decodeBitmap(source)
+            val imgStr: String = BitMapConverter.converterBitmapToString(bitmap)
+            image = imgStr
+            MainViewModel.updateCar(carInfo(carinfo.id, carinfo.carMaker, carinfo.carModel, image))
+        }
     }
 
     private fun createURI(): Uri?{
+        try{
         val image= File(parentFragment?.activity?.applicationContext?.filesDir,"camera_photo.png")
         return FileProvider.getUriForFile(
             activity?.applicationContext!!,
             "com.example.garageapp.fileProvider",image)
+        }catch (e:Exception) {
+            Log.d("pp", e.toString())
+            return null
+        }
     }
 
     private fun onCarClicked(carInfo: carInfo) {
@@ -105,17 +113,18 @@ class MainFragment : Fragment() {
             carAdapter.submitList(it)
         })
 
-        val make :ArrayList<com.example.garageapp.models.Result> = arrayListOf()
+        val make :ArrayList<String> = arrayListOf()
 
         MainViewModel._AllMakes.observe(viewLifecycleOwner, Observer {
             when(it){
                 is FirebaseResult.Error -> {}
                 is FirebaseResult.Loading -> {}
                 is FirebaseResult.Success -> {
-                    it.data?.forEach {
-                        make.add(it)
+                    lst=it.data!!.toMutableList()
+                    it.data.forEach {
+                        make.add(it.Make_Name)
                     }
-                    val listAdapter: ArrayAdapter<com.example.garageapp.models.Result>? =activity?.let {
+                    val listAdapter: ArrayAdapter<String>? =activity?.let {
                         ArrayAdapter(it,R.layout.dropdown_item,make)
                     }
                     binding.spinner.adapter=listAdapter
@@ -130,9 +139,15 @@ class MainFragment : Fragment() {
 
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 Log.d("PP",id.toString())
-                val makeID= make[position].Make_ID.toString()
-                MakeName=make[position].Make_Name
-                setupSpinner2(makeID)
+                var makeID:Int= 0
+                lst.forEach {
+                    if (it.Make_Name==make[position]){
+                        makeID= it.Make_ID
+                    }
+                }
+                //val makeID= make[position].Make_ID.toString()
+                MakeName=make[position]
+                setupSpinner2(makeID.toString())
             }
         }
 
