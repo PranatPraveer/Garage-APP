@@ -1,16 +1,9 @@
 package com.example.garageapp.fragments
 
-import android.app.Activity
-import android.app.Activity.RESULT_OK
-import android.content.Context
-import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.provider.MediaStore
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -18,11 +11,13 @@ import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresApi
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.Observer
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.garageapp.R
@@ -33,9 +28,8 @@ import com.example.garageapp.adapters.carAdapter
 import com.example.garageapp.databinding.FragmentMainBinding
 import com.example.garageapp.models.carInfo
 import com.google.firebase.auth.FirebaseAuth
-import com.google.gson.Gson
 import dagger.hilt.android.AndroidEntryPoint
-import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.launch
 import java.io.File
 
 
@@ -114,23 +108,26 @@ class MainFragment : Fragment() {
         })
 
         val make :ArrayList<String> = arrayListOf()
-
-        MainViewModel._AllMakes.observe(viewLifecycleOwner, Observer {
-            when(it){
-                is FirebaseResult.Error -> {}
-                is FirebaseResult.Loading -> {}
-                is FirebaseResult.Success -> {
-                    lst=it.data!!.toMutableList()
-                    it.data.forEach {
-                        make.add(it.Make_Name)
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                MainViewModel._AllMakes.collect {
+                    when (it) {
+                        is FirebaseResult.Error -> {}
+                        is FirebaseResult.Loading -> {}
+                        is FirebaseResult.Success -> {
+                            lst = it.data!!.toMutableList()
+                            it.data.forEach { res ->
+                                make.add(res.Make_Name)
+                            }
+                            val listAdapter: ArrayAdapter<String>? = activity?.let { activity->
+                                ArrayAdapter(activity, R.layout.dropdown_item, make)
+                            }
+                            binding.spinner.adapter = listAdapter
+                        }
                     }
-                    val listAdapter: ArrayAdapter<String>? =activity?.let {
-                        ArrayAdapter(it,R.layout.dropdown_item,make)
-                    }
-                    binding.spinner.adapter=listAdapter
                 }
             }
-        })
+        }
 
         binding.spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener{
             override fun onNothingSelected(parent: AdapterView<*>?) {
@@ -139,46 +136,48 @@ class MainFragment : Fragment() {
 
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 Log.d("PP",id.toString())
-                var makeID:Int= 0
+                var makeID= 0
                 lst.forEach {
                     if (it.Make_Name==make[position]){
                         makeID= it.Make_ID
                     }
                 }
-                //val makeID= make[position].Make_ID.toString()
                 MakeName=make[position]
                 setupSpinner2(makeID.toString())
             }
         }
 
-        MainViewModel._AllModels.observe(viewLifecycleOwner, Observer {
-            when(it){
-                is FirebaseResult.Error -> {}
-                is FirebaseResult.Loading -> {}
-                is FirebaseResult.Success -> {
-                    val model :ArrayList<String> = arrayListOf()
-                    it.data?.forEach {
-                        model.add(it.Model_Name)
-                    }
+        viewLifecycleOwner.lifecycleScope.launch{
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED){
+                MainViewModel._AllModels.collect{
+                    when(it){
+                        is FirebaseResult.Error -> {}
+                        is FirebaseResult.Loading -> {}
+                        is FirebaseResult.Success -> {
+                            val model :ArrayList<String> = arrayListOf()
+                            it.data?.forEach {resultX ->
+                                model.add(resultX.Model_Name)
+                            }
 
-                    val ArrayAdapter: ArrayAdapter<String>? =activity?.let {
-                        ArrayAdapter(it,R.layout.dropdown_item,model)
-                    }
-                    binding.spinner2.adapter=ArrayAdapter
-                    binding.spinner2.onItemSelectedListener = object : AdapterView.OnItemSelectedListener{
-                        override fun onNothingSelected(parent: AdapterView<*>?) {
+                            val ArrayAdapter: ArrayAdapter<String>? =activity?.let {
+                                ArrayAdapter(it,R.layout.dropdown_item,model)
+                            }
+                            binding.spinner2.adapter=ArrayAdapter
+                            binding.spinner2.onItemSelectedListener = object : AdapterView.OnItemSelectedListener{
+                                override fun onNothingSelected(parent: AdapterView<*>?) {
 
-                        }
+                                }
 
-                        override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                            Log.d("PP",id.toString())
-                            ModelName=model.toString()
+                                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                                    Log.d("PP",id.toString())
+                                    ModelName=model.toString()
+                                }
+                            }
                         }
                     }
                 }
             }
-        })
-
+        }
         binding.BtnAdd.setOnClickListener {
             if(MakeName.isNotEmpty() && ModelName.isNotEmpty()){
                 MainViewModel.addCarInDB(carInfo(null,MakeName,ModelName,null))

@@ -7,16 +7,17 @@ import com.example.garageapp.Repository.mainRepository
 import com.example.garageapp.Utils.FirebaseResult
 import com.example.garageapp.models.carInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class MainViewModel @Inject constructor(private val mainRepository: mainRepository):ViewModel(){
 
-    val _AllMakes: LiveData<FirebaseResult<List<com.example.garageapp.models.Result>>>
+    val _AllMakes: StateFlow<FirebaseResult<List<com.example.garageapp.models.Result>>>
         get() = mainRepository.AllMakes
 
-    val _AllModels: LiveData<FirebaseResult<List<com.example.garageapp.models.ResultX>>>
+    val _AllModels: StateFlow<FirebaseResult<List<com.example.garageapp.models.ResultX>>>
         get() = mainRepository.AllModels
 
     val _AllCars: LiveData<List<carInfo>>
